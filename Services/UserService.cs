@@ -61,5 +61,6 @@ namespace UserManagementAPI.Services
             await _repository.SaveChangesAsync();
             return true;
         }
+        
     }
 }
