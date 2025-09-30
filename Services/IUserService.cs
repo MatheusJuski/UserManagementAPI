@@ -11,6 +11,12 @@ namespace UserManagementAPI.Services
         Task<User?> GetUserByUsernameAsync(string username);
         Task<User> CreateUserAsync(User user);
         Task<User?> UpdateUserAsync(int id, User user);
+        Task<User?> ValidateUserCredentialsAsync(string username, string password);
         Task<bool> DeleteUserAsync(int id);
+        Task<User?> GetUserByRefreshTokenAsync(string refreshToken);
+
+        // Métodos de Refresh Token
+        Task SetRefreshTokenAsync(User user);
+        string GenerateRefreshToken();
     }
 }

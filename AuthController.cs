@@ -1,10 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using UserManagementAPI.Models;
 using UserManagementAPI.Services;
+using UserManagementAPI.DTOs;
+
+
 
 namespace UserManagementAPI.Controllers
 {
@@ -21,26 +25,51 @@ namespace UserManagementAPI.Controllers
             _configuration = configuration;
         }
 
-        [HttpPost("login")]
-        
+    [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        var user = await _userService.GetUserByUsernameAsync(request.Username);
-
-        // Verifica se usuário existe e se a senha bate (texto puro por enquanto)
-        if (user == null || user.PasswordHash != request.Password)
+        // Usa o método do UserService que valida hash
+        var user = await _userService.ValidateUserCredentialsAsync(request.Username, request.Password);
+        if (user == null)
             return Unauthorized("Usuário ou senha inválidos");
 
+        
+
         var token = GenerateJwtToken(user);
+        
+        
+
+        // Gera e salva refresh token
+            await _userService.SetRefreshTokenAsync(user);
 
         return Ok(new
         {
             token,
+            refreshToken = user.RefreshToken, // envia refresh token
             expires = DateTime.UtcNow.AddMinutes(
                 Convert.ToDouble(_configuration["Jwt:DurationInMinutes"] ?? "60")
             )
         });
-}
+    }
+        [HttpPost("refresh-token")]
+        [AllowAnonymous]
+    
+    public async Task<IActionResult> RefreshToken([FromBody] TokenRequest request)
+        {
+            var user = await _userService.GetUserByRefreshTokenAsync(request.RefreshToken);
+            if (user == null || user.RefreshTokenExpiryTime < DateTime.UtcNow)
+                return Unauthorized("Token inválido ou expirado");
+
+            var newJwtToken = GenerateJwtToken(user);
+            await _userService.SetRefreshTokenAsync(user); // renova refresh token
+
+            return Ok(new
+            {
+                token = newJwtToken,
+                refreshToken = user.RefreshToken
+            });
+        }
+
 
 
         // 🔑 Função privada para gerar token

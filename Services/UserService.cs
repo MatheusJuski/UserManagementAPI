@@ -1,17 +1,21 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
 using UserManagementAPI.Models;
 using UserManagementAPI.Repositories;
+using System.Security.Cryptography;
 
 namespace UserManagementAPI.Services
 {
     public class UserService : IUserService
     {
         private readonly IUserRepository _repository;
+        private readonly PasswordHasher<User> _passwordHasher;
 
         public UserService(IUserRepository repository)
         {
             _repository = repository;
+            _passwordHasher = new PasswordHasher<User>();
         }
 
         public async Task<IEnumerable<User>> GetAllUsersAsync()
@@ -31,6 +35,7 @@ namespace UserManagementAPI.Services
 
         public async Task<User> CreateUserAsync(User user)
         {
+            user.PasswordHash = _passwordHasher.HashPassword(user, user.PasswordHash);
             await _repository.AddUserAsync(user);
             await _repository.SaveChangesAsync();
             return user;
@@ -61,6 +66,45 @@ namespace UserManagementAPI.Services
             await _repository.SaveChangesAsync();
             return true;
         }
+        public async Task<User?> ValidateUserCredentialsAsync(string username, string password)
+        {
+            var user = await _repository.GetUserByUsernameAsync(username);
+            if (user == null) return null;
+
+            var passwordHasher = new PasswordHasher<User>();
+            var result = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+
+            if (result == PasswordVerificationResult.Failed)
+                return null;
+
+            return user;
+}
+
+
+        public async Task SetRefreshTokenAsync(User user)
+        {
+            user.RefreshToken = GenerateRefreshToken();
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7); // expira em 7 dias
+            await _repository.SaveChangesAsync();
+        }
+
+        public string GenerateRefreshToken()
+        {
+            var randomNumber = new byte[32];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomNumber);
+                return Convert.ToBase64String(randomNumber);
+            }
+        }
+
+
+        public async Task<User?> GetUserByRefreshTokenAsync(string refreshToken)
+        {
+            var users = await _repository.GetAllUsersAsync();
+            return users.FirstOrDefault(u => u.RefreshToken == refreshToken);
+        }
+
         
     }
 }

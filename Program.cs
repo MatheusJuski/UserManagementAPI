@@ -86,6 +86,7 @@ var app = builder.Build();
 // Middleware
 if (app.Environment.IsDevelopment())
 {
+    app.UseDeveloperExceptionPage(); // mostra detalhes completos do erro
     app.UseSwagger();
     app.UseSwaggerUI();
 }

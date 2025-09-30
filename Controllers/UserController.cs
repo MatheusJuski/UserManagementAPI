@@ -1,11 +1,14 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UserManagementAPI.Models;
 using UserManagementAPI.Services;
+using UserManagementAPI.DTOs;
 
 namespace UserManagementAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUserService _service;
@@ -34,6 +37,7 @@ namespace UserManagementAPI.Controllers
 
         // POST: api/user
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Create(User user)
         {
 
@@ -52,11 +56,19 @@ namespace UserManagementAPI.Controllers
 
         // DELETE: api/user/{id}
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var deleted = await _service.DeleteUserAsync(id);
             if (!deleted) return NotFound();
             return NoContent();
+        }
+
+        [HttpGet("publico")]
+        [AllowAnonymous]
+        public IActionResult GetPublic()
+        {
+            return Ok("Qualquer pessoa pode ver isso.");
         }
     }
 }
